@@ -8,6 +8,7 @@ import tensorflow
 import random
 import json
 import pickle
+import os
 
 with open("intents.json") as file:
     data = json.load(file)
@@ -65,6 +66,7 @@ except:
     with open("data.pickle", "wb") as f:
         pickle.dump((words, labels, training, output), f)
 
+
 tensorflow.compat.v1.reset_default_graph()
 
 net = tflearn.input_data(shape=[None, len(training[0])])
@@ -75,11 +77,15 @@ net = tflearn.regression(net)
 
 model = tflearn.DNN(net)
 
-try:
+if os.path.exists("model.tflearn.meta"):
     model.load("model.tflearn")
-except:
-    model.fit(training, output, n_epoch=1000, batch_size=8, show_metric=True)
+else:
+    model.fit(training, output, n_epoch=5000, batch_size=8, show_metric=True)
     model.save("model.tflearn")
+
+    # 1000 epochs = loss: 0.11973 - acc: 0.9911#
+    # 2000 epochs = loss: 0.08309 - acc: 0.9931#
+    # 5000 epochs = loss: 0.03344 - acc: 0.9992#
 
 
 def bag_of_words(s, words):
@@ -103,14 +109,19 @@ def chat():
         if inp.lower() == "quit":
             break
 
-        results = model.predict([bag_of_words(inp, words)])
+        results = model.predict([bag_of_words(inp, words)])[0]
         results_index = numpy.argmax(results)
         tag = labels[results_index]
+        if results[results_index] > 0.7:
 
-        for tg in data["intents"]:
-            if tg['tag'] == tag:
-                responses = tg['responses']
+            for tg in data["intents"]:
+                if tg['tag'] == tag:
+                    responses = tg['responses']
 
-        print(random.choice(responses))        
+            print(random.choice(responses))        
+
+        else:
+            print("I didn't get that, try again or ask another question.")
+
 
 chat()
